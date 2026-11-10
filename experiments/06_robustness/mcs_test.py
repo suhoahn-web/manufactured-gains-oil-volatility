@@ -22,7 +22,8 @@ import pandas as pd
 
 HERE = Path(__file__).resolve().parent
 HORIZONS = {"h1": 1, "h2": 2, "h4": 4, "h8": 8, "h12": 12}
-MODELS = ["HAR", "M1", "M2", "M3", "M4arch", "M4", "M5_lb0p1", "M5_lb0p5"]
+MODELS = ["HAR", "M1", "M2", "M2wide", "M3derived", "M3", "M4arch", "M4",
+          "M5_lb0p1", "M5_lb0p5"]
 B = 5000
 rng = np.random.default_rng(0)
 

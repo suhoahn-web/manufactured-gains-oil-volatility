@@ -1,0 +1,34 @@
+digraph StockFlow {
+  graph [rankdir=LR, bgcolor="transparent", pad=0.18, nodesep=0.34,
+         ranksep=0.62, splines=polyline, outputorder=edgesfirst];
+  node [shape=box, style="rounded,filled", color="#444444", penwidth=1.0,
+        fontname="Arial", fontsize=10, height=0.68, fixedsize=true];
+  edge [color="#444444", penwidth=1.15, arrowsize=0.72];
+
+  prod [label="Field production\n(kb/d)", width=1.72, fillcolor="#FCF3E3"];
+  imp  [label="Imports\n(kb/d)", width=1.72, fillcolor="#FCF3E3"];
+  adj  [label="Adjustment\n(kb/d)", width=1.72, fillcolor="#FCF3E3"];
+
+  stock [label="Commercial crude stocks\nexcluding SPR (kb)", width=2.28,
+         fillcolor="#E8F1F8"];
+
+  ref [label="Refinery net inputs\n(kb/d)", width=1.72, fillcolor="#FCF3E3"];
+  exp [label="Exports\n(kb/d)", width=1.72, fillcolor="#FCF3E3"];
+  spr [label="SPR transfers\n(kb/wk)", width=1.72, fillcolor="#FCF3E3"];
+
+  {rank=same; prod; imp; adj}
+  {rank=same; ref; exp; spr}
+  prod -> imp [style=invis, weight=20];
+  imp -> adj [style=invis, weight=20];
+  ref -> exp [style=invis, weight=20];
+  exp -> spr [style=invis, weight=20];
+
+  prod:e -> stock:w;
+  imp:e  -> stock:w;
+  adj:e  -> stock:w;
+  stock:e -> ref:w;
+  stock:e -> exp:w;
+  stock:e -> spr:w;
+
+}
+

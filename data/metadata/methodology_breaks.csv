@@ -1,0 +1,6 @@
+series,date,description,source
+WCREXUS2,2016-06-30,"Before ~July 2016 weekly crude exports were estimates based on monthly Census data; afterwards EIA uses near-real-time weekly Census export data",https://www.eia.gov/petroleum/supply/weekly/
+WCRFPUS2,2022-08-31,"EIA revised weekly production estimation methodology; weekly production rounded/modeled from STEO short-term model",https://www.eia.gov/petroleum/supply/weekly/
+ALL,2023-03-01,"EIA introduced 'transfers to crude oil supply' line in WPSR Table 1 to reduce the persistent positive crude adjustment (unaccounted-for crude)",https://www.eia.gov/todayinenergy/detail.php?id=55839
+W_EPC0_SAX_YCUOK_MBBL,2004-04-09,"Cushing OK stocks series begins; constrains earliest common sample",https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?f=W&n=PET&s=W_EPC0_SAX_YCUOK_MBBL
+WCSSTUS1,2022-04-01,"Large sustained SPR drawdowns (policy releases) 2022-2023 make SPR flow non-negligible in total balance",https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?f=W&n=PET&s=WCSSTUS1

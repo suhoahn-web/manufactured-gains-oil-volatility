@@ -1,4 +1,4 @@
-﻿"""Manuscript figures F1-F6 (journal style, Okabe-Ito CVD-safe palette).
+"""Manuscript figures F1-F6 (journal style, Okabe-Ito CVD-safe palette).
 
 Fixed entity->color mapping across ALL figures:
   HAR gray #666666 | M1 blue #0072B2 | M4 orange #E69F00
@@ -126,69 +126,142 @@ ax.text(ds["date"].iloc[5], q10 - 3, "train q10", fontsize=7, color="#666666")
 ax.set_ylabel("$\\Delta$ commercial stocks\n(million bbl/wk)")
 ax.set_title("(b) Weekly commercial crude stock change", loc="left")
 ax.xaxis.set_major_locator(mdates.YearLocator(4))
-fig.tight_layout(); save(fig, "F3_history")
+fig.tight_layout(); save(fig, "F1_history")
 
-# ---- F4: lambda trade-off (v5, HAR-residual, single split) ---------------
-lam = [0.0, 0.01, 0.1, 0.5]
-q_h1 = [0.1267, 0.1258, 0.1251, 0.1228]
-q_h12 = [0.1637, 0.1624, 0.1621, 0.1632]
-bce = [6210, 6161, 6154, 6065]
+# ---- F4: constraint strength, pooled expanding window --------------------
+# Both arms are read from the pooled per-week files rather than hard-coded, so
+# the figure and the tables cannot drift apart. The weights used in the ladder
+# stop at 0.5; 2 and 5 are where the constraint actually binds.
+POOL = PROJECT_ROOT / "experiments" / "06_robustness"
+LAM = [("M4", 0.0), ("M5_lb0p1", 0.1), ("M5_lb0p5", 0.5),
+       ("M5_lb2p0", 2.0), ("M5_lb5p0", 5.0)]
+
+q_h1, q_h12 = [], []
+for spec, _ in LAM:
+    d = pd.read_csv(POOL / f"ew_losses_{spec}.csv")
+    q_h1.append(d["h1"].mean())
+    q_h12.append(d["h12"].mean())
+
+bce_src = pd.concat([pd.read_csv(POOL / "ew_bce_ladder.csv"),
+                     pd.read_csv(POOL / "ew_bce_extra.csv")])
+# the unpenalised network is recorded under the stopping-rule control, which
+# is bit-identical to M4
+bce_key = {0.0: "M4_fcstop", 0.1: "M5_lb0p1", 0.5: "M5_lb0p5",
+           2.0: "M5_lb2p0", 5.0: "M5_lb5p0"}
+bce = [bce_src.loc[bce_src.config == bce_key[lam], "bce_kb_week_mean"].mean()
+       for _, lam in LAM]
+
+har_h1, har_h12 = [pd.read_csv(POOL / "ew_losses_HAR.csv")[c].mean()
+                   for c in ("h1", "h12")]
+xs = range(len(LAM))
+ticks = ["0\n(M4)", "0.1", "0.5", "2", "5"]
+
 fig, axes = plt.subplots(1, 2, figsize=(COL2, 3.0))
 ax = axes[0]
-ax.plot(range(4), q_h1, color=C["M1"], ls="-", marker="o", lw=1.5,
-        ms=4, label="h = 1")
-ax.plot(range(4), q_h12, color=C["M4"], ls="--", marker="s", lw=1.5,
-        ms=4, label="h = 12")
-ax.set_xticks(range(4)); ax.set_xticklabels(["0\n(M4)", "0.01", "0.1", "0.5"])
-ax.set_xlabel("$\\lambda_B$"); ax.set_ylabel("Test QLIKE")
-ax.set_title("(a) Forecast loss vs constraint strength", loc="left")
-ax.legend()
+ax.plot(xs, q_h1, color=C["M1"], ls="-", marker="o", lw=1.5, ms=4,
+        label="h = 1")
+ax.plot(xs, q_h12, color=C["M4"], ls="--", marker="s", lw=1.5, ms=4,
+        label="h = 12")
+ax.axhline(har_h1, color=C["M1"], lw=0.8, ls=":", alpha=0.7)
+ax.axhline(har_h12, color=C["M4"], lw=0.8, ls=":", alpha=0.7)
+ax.text(0.05, har_h1, "HAR, h = 1", fontsize=6.5,
+        color=C["M1"], va="bottom", ha="left")
+ax.text(0.05, har_h12, "HAR, h = 12", fontsize=6.5,
+        color=C["M4"], va="bottom", ha="left")
+# the constraint binds from the smallest weight on; what changes past 0.5 is
+# that the accuracy cost becomes statistically significant
+ax.axvspan(3, len(LAM) - 1, color="#F0F0F0", zorder=0)
+lo, hi = min(q_h1 + q_h12), max(q_h1 + q_h12)
+ax.set_ylim(lo - 0.06 * (hi - lo), hi + 0.22 * (hi - lo))
+ax.text(3.5, ax.get_ylim()[1], "accuracy cost significant", fontsize=6.5,
+        color="#666666", ha="center", va="top")
+ax.set_xticks(xs); ax.set_xticklabels(ticks)
+ax.set_xlabel("$\\lambda_B$"); ax.set_ylabel("Pooled QLIKE")
+ax.set_title("(a) Forecast loss vs constraint strength", loc="center")
+ax.legend(loc="lower right")
+
 ax = axes[1]
-ax.plot(range(4), [b / 1000 for b in bce], "-o", color=C["M5b"], lw=1.5, ms=4)
-ax.set_xticks(range(4)); ax.set_xticklabels(["0\n(M4)", "0.01", "0.1", "0.5"])
+ax.plot(xs, [b / 1000 for b in bce], "-o", color=C["M5b"], lw=1.5, ms=4)
+ax.axvspan(3, len(LAM) - 1, color="#F0F0F0", zorder=0)
+ax.annotate(f"{100 * (bce[0] - bce[2]) / bce[0]:.0f}% lower at $\\lambda_B$ = 0.5",
+            xy=(2, bce[2] / 1000),
+            xytext=(3.7, bce[2] / 1000 + 0.22),
+            fontsize=6.5, color="#666666", ha="right", va="center",
+            arrowprops=dict(arrowstyle="->", color="#999999", lw=0.7,
+                            shrinkA=3, shrinkB=2))
+ax.set_xticks(xs); ax.set_xticklabels(ticks)
 ax.set_xlabel("$\\lambda_B$")
 ax.set_ylabel("BCE (million bbl/wk)")
-ax.set_title("(b) Balance-consistency error", loc="left")
-fig.tight_layout(); save(fig, "F4_lambda_tradeoff")
+ax.set_title("(b) Balance-consistency error", loc="center")
+fig.tight_layout(); save(fig, "F6_lambda_tradeoff")
 
-# ---- F5: horizon gains + build-window bars -------------------------------
+# ---- F5: the same forecasts scored on three scales -----------------------
+# The paper's central result. Read from the analysis CSV so the figure and the
+# tables cannot disagree.
+SC = PROJECT_ROOT / "experiments" / "07_final" / "scale_comparison.csv"
+sc = pd.read_csv(SC)
 h = [1, 2, 4, 8, 12]
-ew = {  # pooled expanding-window QLIKE, v5 (HAR-residual)
-    "HAR": [0.1206, 0.0939, 0.0974, 0.1211, 0.1418],
-    "M1": [0.1207, 0.0953, 0.0998, 0.1253, 0.1464],
-    "M4": [0.1190, 0.0953, 0.0999, 0.1237, 0.1415],
-    "M5a": [0.1184, 0.0955, 0.0980, 0.1208, 0.1380],
-}
-build12 = {"HAR": 0.8379, "M1": 0.8180, "M4": 0.7705,
-           "M5a": 0.7264, "M5b": 0.5646}
-labels = {"HAR": "HAR", "M1": "M1 (price-only)", "M4": "M4 (multi-task)",
-          "M5a": "M5 ($\\lambda_B$=0.1)", "M5b": "M5 ($\\lambda_B$=0.5)"}
-fig, axes = plt.subplots(1, 2, figsize=(COL2, 3.1),
-                         gridspec_kw={"width_ratios": [1.5, 1]})
+SPECS5 = ["M1", "M2", "M3derived", "M3", "M4", "M5_lb0p1", "M5_lb0p5"]
+NICE = {"M1": "M1", "M2": "M2", "M3derived": "M3derived", "M3": "M3",
+        "M4": "M4", "M5_lb0p1": r"M5 ($\lambda_B$=0.1)",
+        "M5_lb0p5": r"M5 ($\lambda_B$=0.5)"}
+
+fig, axes = plt.subplots(1, 2, figsize=(COL2, 3.2),
+                         gridspec_kw={"width_ratios": [1.15, 1]})
+
+# (a) one specification, three scales, across horizons
 ax = axes[0]
-for m in ("HAR", "M1", "M4", "M5a"):
-    ls, mk = STYLE[m]
-    ax.plot(h, ew[m], color=C[m], ls=ls, marker=mk, lw=1.5, ms=4.5,
-            label=labels[m])
+lines = [("QLIKE_var", "QLIKE on variance", C["M5b"], "-", "o"),
+         ("MSE_var", "MSE on variance", C["M4"], "-.", "^"),
+         ("QLIKE_vol", "QLIKE on volatility", C["M1"], "--", "s"),
+         ("MSE_log", "MSE on log volatility", C["ink"], ":", "D")]
+sel = "M5_lb0p5"
+start_labels = []
+for key, lab, col, ls, mk in lines:
+    y = [sc[(sc.spec == sel) & (sc.loss == key) & (sc.h == hh)]
+         ["pct_vs_har"].iloc[0] for hh in h]
+    ax.plot(h, y, color=col, ls=ls, marker=mk, lw=1.5, ms=4, label=lab)
+    start_labels.append((lab, col, y[0]))
+ax.axhline(0, color="#444444", lw=1.0)
 ax.set_xscale("log"); ax.set_xticks(h); ax.set_xticklabels(h)
+ax.set_xlim(0.55, 13.2)
 ax.minorticks_off()
-ax.set_xlabel("Forecast horizon (weeks)"); ax.set_ylabel("Pooled QLIKE")
-ax.set_title("(a) Expanding-window QLIKE by horizon", loc="left")
-ax.legend(fontsize=7.5)
+ax.set_xlabel("Forecast horizon (weeks)")
+ax.set_ylabel("Change vs benchmark (%)")
+for lab, col, y0 in start_labels:
+    ax.text(0.92, y0, lab, color=col, fontsize=6.5,
+            ha="right", va="center")
+lo, hi = ax.get_ylim()
+ax.set_ylim(lo, hi + 0.10 * (hi - lo))
+ax.text(12, ax.get_ylim()[1], "worse than benchmark", fontsize=6.5,
+        color="#666666", va="top", ha="right")
+ax.text(12, lo + 0.02 * (hi - lo), "better than benchmark", fontsize=6.5,
+        color="#666666", va="bottom", ha="right")
+
+# (b) every specification, two scales, at twelve weeks
 ax = axes[1]
-ms = ["HAR", "M1", "M4", "M5a", "M5b"]
-ax.bar(range(5), [build12[m] for m in ms],
-       color=[C[m] for m in ms], width=0.62)
-ax.set_xticks(range(5))
-ax.set_xticklabels(["HAR", "M1", "M4", "M5\n0.1", "M5\n0.5"], fontsize=7.5)
-for i, m in enumerate(ms):
-    ax.text(i, build12[m] + 0.02, f"{build12[m]:.2f}", ha="center", fontsize=7)
-ax.set_ylabel("QLIKE, h = 12")
-ax.set_title("(b) Inventory-build windows", loc="left")
-ax.grid(axis="x", visible=False)
-fig.tight_layout(); save(fig, "F5_horizon_gains")
+ypos = np.arange(len(SPECS5))
+for key, lab, col, mk in [("QLIKE_var", "on variance", C["M5b"], "o"),
+                          ("MSE_log", "on log volatility", C["ink"], "D")]:
+    x = [sc[(sc.spec == s) & (sc.loss == key) & (sc.h == 12)]
+         ["pct_vs_har"].iloc[0] for s in SPECS5]
+    ax.scatter(x, ypos, color=col, marker=mk, s=26, label=lab, zorder=3)
+ax.axvline(0, color="#444444", lw=1.0)
+ax.set_yticks(ypos)
+ax.set_yticklabels([NICE[s] for s in SPECS5], fontsize=7.5)
+ax.invert_yaxis()
+ax.set_xlabel("Change vs benchmark at h = 12 (%)")
+ax.legend(fontsize=7, loc="lower right")
+ax.grid(axis="y", visible=False)
+axes[0].text(0.0, -0.25, "(a) One specification evaluated under four scoring conventions",
+             transform=axes[0].transAxes, ha="left", va="top", fontsize=8)
+axes[1].text(0.0, -0.25, "(b) All specifications evaluated on two scales at h = 12",
+             transform=axes[1].transAxes, ha="left", va="top", fontsize=8)
+fig.tight_layout(rect=(0, 0.13, 1, 1)); save(fig, "F5_scale_sensitivity")
 
 # ---- F6: 2020 case study -------------------------------------------------
+labels = {"HAR": "HAR", "M1": "M1 (price-only)", "M4": "M4 (multi-task)",
+          "M5a": "M5 ($\\lambda_B$=0.1)", "M5b": "M5 ($\\lambda_B$=0.5)"}
 import sys
 sys.path.insert(0, str(PROJECT_ROOT / "experiments" / "05_inventory_stress"))
 import stress_analysis
@@ -211,16 +284,16 @@ ax.plot(d, np.exp(p5.loc[mask, "yhat_h1"]) * 100, lw=1.2, color=C["M5a"],
         ls=STYLE["M5a"][0], label=labels["M5a"])
 ax.set_ylabel("Next-week RV (%)")
 ax.set_yscale("log")
-ax.set_title("(a) One-week-ahead realized volatility, 2020", loc="left")
+ax.set_title("(a) One-week-ahead realized volatility, 2020", loc="center")
 ax.legend(fontsize=7.5, ncol=2)
 ax = axes[1]
 m20 = (ds["date"] >= "2020-01-01") & (ds["date"] <= "2020-12-31")
 ax.plot(ds.loc[m20, "date"], ds.loc[m20, "stocks_commercial"] / 1000,
         lw=1.4, color=C["M4"])
 ax.set_ylabel("Commercial stocks\n(million bbl)")
-ax.set_title("(b) U.S. commercial crude stocks", loc="left")
+ax.set_title("(b) U.S. commercial crude stocks", loc="center")
 ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
-fig.tight_layout(); save(fig, "F6_case2020")
+fig.tight_layout(); save(fig, "F4_case2020")
 
 print("Figures written to", FIG)

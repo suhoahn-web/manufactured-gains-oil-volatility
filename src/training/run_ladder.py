@@ -171,20 +171,30 @@ def prepare_arrays(df, splits, feature_groups):
 
 
 def train_model(model, loaders, device, cfg, is_dual, aux_sc=None,
-                lambda_f=0.0, lambda_b=0.0, bal_scale=1.0):
+                lambda_f=0.0, lambda_b=0.0, bal_scale=1.0,
+                stop_on_forecast=False):
+    """Fit one specification.
+
+    `stop_on_forecast` monitors the forecast Huber term alone for early
+    stopping instead of the composite objective. The ladder's default is the
+    composite, which means the M4arch-to-M4 contrast mixes the auxiliary
+    gradient with a change in the stopping criterion; setting this flag
+    separates the two.
+    """
     opt = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
     huber = nn.HuberLoss(delta=1.0)
     best_val, best_state, patience = np.inf, None, 0
     for epoch in range(cfg["epochs"]):
         for phase in ("train", "val"):
             model.train(phase == "train")
-            total, n = 0.0, 0
+            total, total_fcst, n = 0.0, 0.0, 0
             with torch.set_grad_enabled(phase == "train"):
                 for batch in loaders[phase]:
                     if is_dual:
                         yhat, auxhat = model(batch["price"].to(device),
                                              batch["phys"].to(device))
-                        loss = huber(yhat, batch["y"].to(device))
+                        fcst = huber(yhat, batch["y"].to(device))
+                        loss = fcst
                         if lambda_f > 0:
                             loss = loss + lambda_f * huber(
                                 auxhat, batch["aux"].to(device))
@@ -196,15 +206,16 @@ def train_model(model, loaders, device, cfg, is_dual, aux_sc=None,
                                 scale=bal_scale)
                     else:
                         yhat = model(batch["x"].to(device))
-                        loss = huber(yhat, batch["y"].to(device))
+                        loss = fcst = huber(yhat, batch["y"].to(device))
                     if phase == "train":
                         opt.zero_grad()
                         loss.backward()
                         opt.step()
                     total += loss.item() * len(batch["y"])
+                    total_fcst += fcst.item() * len(batch["y"])
                     n += len(batch["y"])
             if phase == "val":
-                val = total / n
+                val = (total_fcst if stop_on_forecast else total) / n
                 if val < best_val - 1e-5:
                     best_val, patience = val, 0
                     best_state = {k: v.detach().clone()

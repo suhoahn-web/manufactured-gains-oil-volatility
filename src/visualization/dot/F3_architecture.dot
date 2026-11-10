@@ -1,0 +1,40 @@
+digraph Architecture {
+  graph [rankdir=LR, bgcolor="transparent", pad=0.18, nodesep=0.62,
+         ranksep=0.68, splines=ortho, outputorder=edgesfirst];
+  node [shape=box, style="rounded,filled", color="#444444", penwidth=1.0,
+        fontname="Arial", fontsize=9.5, height=0.82, fixedsize=true];
+  edge [color="#444444", penwidth=1.15, arrowsize=0.72];
+
+  price [label="Price features (12 wk)\nReturns, volatility,\nRV 1/4/12 wk",
+         width=2.12, fillcolor="#E8F1F8"];
+  physical [label="Physical features (12 wk)\nEIA raw and engineered\nbalance features",
+            width=2.12, fillcolor="#FCF3E3"];
+  gru_price [label="GRU\n64 units", width=1.18, fillcolor="#F2F2F2"];
+  gru_physical [label="GRU\n32 units", width=1.18, fillcolor="#F2F2F2"];
+  fusion [label="Fusion\nMLP head", width=1.42, fillcolor="#F2F2F2"];
+  aux [label="Auxiliary head\nstate change + adjustment\n(next week)",
+       width=1.72, fillcolor="#FCF3E3"];
+  rv [label="log RV forecast\nh = 1, 2, 4, 8, 12", width=1.55,
+      fillcolor="#E8F1F8"];
+  balance [label="Balance-consistency\nloss", width=1.55, fillcolor="#F6E4DE",
+           color="#D55E00", penwidth=1.2];
+
+  {rank=same; price; physical}
+  {rank=same; gru_price; gru_physical}
+  {rank=same; fusion; aux}
+  {rank=same; rv; balance}
+  price -> physical [style=invis, weight=20];
+  gru_price -> gru_physical [style=invis, weight=20];
+  fusion -> aux [style=invis, weight=20];
+  rv -> balance [style=invis, weight=20];
+
+  price:e -> gru_price:w;
+  physical:e -> gru_physical:w;
+  gru_price:e -> fusion:w;
+  gru_physical:e -> fusion:w;
+  gru_physical:e -> aux:w;
+  fusion:e -> rv:w;
+  aux:e -> balance:w;
+
+}
+

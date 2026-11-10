@@ -1,4 +1,4 @@
-"""Table 2: descriptive statistics of the modelling sample (design doc 29.2)."""
+﻿"""Table 2: descriptive statistics of the modelling sample (design doc 29.2)."""
 
 from pathlib import Path
 
@@ -19,6 +19,10 @@ VARS = [
     ("Exports (kb/d)", lambda d: d["exports"]),
     ("Refinery inputs (kb/d)", lambda d: d["refinery_inputs"]),
     ("Commercial stocks (Mbbl)", lambda d: d["stocks_commercial"] / 1000),
+    ("Total stocks including SPR (Mbbl)",
+     lambda d: (d["stocks_commercial"] + d["stocks_spr"]) / 1000),
+    ("Strategic Petroleum Reserve stocks (Mbbl)",
+     lambda d: d["stocks_spr"] / 1000),
     ("Cushing stocks (Mbbl)", lambda d: d["stocks_cushing"] / 1000),
     ("Utilization (%)", lambda d: d["utilization"]),
     ("Adjustment (kb/d)", lambda d: d["adjustment"]),
@@ -55,3 +59,5 @@ txt = ["# Table 2. Descriptive statistics", "",
 out.write_text("\n".join(txt), encoding="utf-8")
 tbl.round(4).to_csv(Path(__file__).resolve().parent / "descriptive_stats.csv")
 print("\n".join(txt))
+
+
